@@ -1,0 +1,34 @@
+name: MagAudit dependency check
+description: >-
+  Flags dependencies added in a pull request that do not exist, or were published days
+  ago with almost no users. Runs entirely in your runner; your code never leaves it.
+author: MagSolutionsAI
+branding:
+  icon: shield
+  color: green
+
+inputs:
+  fail-on:
+    description: >-
+      Which findings fail the check: "high" (default: missing packages and packages
+      published days ago with little adoption), "critical" (missing packages only) or
+      "none" (annotate only).
+    required: false
+    default: high
+
+runs:
+  using: composite
+  steps:
+    - name: Install the one dependency
+      shell: bash
+      run: python3 -m pip install --quiet --disable-pip-version-check "requests==2.33.0"
+
+    - name: Check the dependencies this pull request adds
+      shell: bash
+      # Los inputs van por el entorno, nunca interpolados dentro del script:
+      # interpolar `${{ inputs.* }}` en `run` es una inyeccion de ordenes.
+      env:
+        MAGAUDIT_FAIL_ON: ${{ inputs.fail-on }}
+        PYTHONPATH: ${{ github.action_path }}
+        LEDGER_ENABLED: "0"
+      run: python3 "$GITHUB_ACTION_PATH/revisar.py"
