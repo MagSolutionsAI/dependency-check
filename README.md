@@ -80,3 +80,9 @@ that added 305 dependencies:
 
 The sample contained no real malicious package, so this measures false alarms, not detection.
 Detection is covered by tests built from real cases.
+
+## License
+
+[PolyForm Shield 1.0.0](LICENSE). You can use, copy and modify this action for any purpose,
+including in your company's own pipelines, at no cost. The one thing it does not allow is using
+it to build a product that competes with MagSolutionsAI.
