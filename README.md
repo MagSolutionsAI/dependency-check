@@ -56,7 +56,9 @@ Only package names leave the runner:
 | `api.npmjs.org` | Weekly downloads of an npm package |
 | `pypistats.org` | Weekly downloads of a Python package, only when it is less than 90 days old (PyPI does not publish download counts) |
 
-Nothing is sent to us. The action installs one package, `requests`, from PyPI.
+Nothing is sent to us. The action installs one package, `requests`, from PyPI. The MagAudit
+App reads more of the pull request, and [where its data goes](https://magsolutionsai.com/trust.html)
+is documented processor by processor.
 
 ## What it does not do
 
@@ -79,7 +81,8 @@ that added 305 dependencies:
   raised **none**.
 
 The sample contained no real malicious package, so this measures false alarms, not detection.
-Detection is covered by tests built from real cases.
+Detection is covered by tests built from real cases. We publish every mistake our rules have
+made and how each was fixed: [our error record](https://magsolutionsai.com/quality.html).
 
 ## License
 
