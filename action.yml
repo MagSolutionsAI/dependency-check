@@ -1,7 +1,7 @@
 name: MagAudit dependency check
 description: >-
-  Flags dependencies added in a pull request that do not exist, or were published days
-  ago with almost no users. Runs entirely in your runner; your code never leaves it.
+  Flags dependencies a pull request adds that do not exist, or were published days ago
+  with few users. Runs in your runner.
 author: MagSolutionsAI
 branding:
   icon: shield
