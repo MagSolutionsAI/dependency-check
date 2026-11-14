@@ -951,7 +951,12 @@ def _reflect_prompt(cands: list[Verdict], all_deps: Iterable[Dep]) -> str:
     return "\n".join(lines)
 
 
-_JSON_BLOCK = re.compile(r"\{.*\}", re.DOTALL)
+def _bloque_json(raw: str) -> Optional[str]:
+    """De la primera `{` a la ultima `}`: lo mismo que `\\{.*\\}` con DOTALL,
+    pero lineal. La expresion era cuadratica con muchas llaves sin cerrar
+    (revision finecomb, 2026-11-14)."""
+    i, j = raw.find("{"), raw.rfind("}")
+    return raw[i:j + 1] if i != -1 and j > i else None
 
 
 def n_reflect(s: State, complete: Optional[Callable[[str, str], str]]) -> State:
@@ -974,12 +979,12 @@ def n_reflect(s: State, complete: Optional[Callable[[str, str], str]]) -> State:
 
     s.budget.charge(est, estimate_tokens(raw or ""))
 
-    m = _JSON_BLOCK.search(raw or "")
-    if not m:
+    bloque = _bloque_json(raw or "")
+    if not bloque:
         s.trace.append("reflect: unparseable response — no changes applied")
         return s
     try:
-        data = json.loads(m.group(0))
+        data = json.loads(bloque)
         entries = data["assessment"]
     except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         s.trace.append("reflect: invalid JSON — no changes applied")
@@ -1285,8 +1290,18 @@ def _descargas_pypi(name: str, timeout: int) -> Optional[int]:
         return None
 
 
-def http_registry(timeout: int = 8, cache_ttl: int = REGISTRY_CACHE_TTL) -> RegistryClient:
+def http_registry(timeout: int = 8, cache_ttl: int = REGISTRY_CACHE_TTL,
+                  max_consultas: Optional[int] = None,
+                  max_segundos: Optional[float] = None) -> RegistryClient:
     """Cliente contra PyPI y npm. Se inyecta; el grafo no depende de la red.
+
+    `max_consultas` y `max_segundos` acotan lo que este cliente puede gastar en
+    total. Sin tope (el valor por defecto, que usa la accion sobre un checkout
+    entero) un manifiesto decide cuantas peticiones hacemos: medido el
+    2026-11-11, un diff de 60 KB con 3.588 nombres inventados provocaba 82.524
+    consultas, mas de dos horas de un proceso que comparten todos los clientes.
+    El servicio pasa los dos topes. Lo que queda fuera se devuelve SIN
+    RESOLVER, igual que un fallo de red: nunca como «no existe».
 
     Con cache TTL acotada: sin ella, cada PR repetia las mismas consultas
     (`requests`, `numpy`...) y una rafaga de PRs multiplicaba el coste y el
@@ -1373,12 +1388,23 @@ def http_registry(timeout: int = 8, cache_ttl: int = REGISTRY_CACHE_TTL) -> Regi
         return RegistryFact(exists=True, age_days=_age_days(created) if created else None,
                             downloads=dl, **base)
 
+    gasto = {"consultas": 0, "desde": None, "sin_resolver_por_tope": 0}
+
     def fetch(eco: str, name: str) -> RegistryFact:
         hit = _cached(eco, name)
         if hit is not None:
             return hit
+        ahora = _t.monotonic()
+        if gasto["desde"] is None:
+            gasto["desde"] = ahora
+        if ((max_consultas is not None and gasto["consultas"] >= max_consultas)
+                or (max_segundos is not None and ahora - gasto["desde"] > max_segundos)):
+            gasto["sin_resolver_por_tope"] += 1
+            return RegistryFact()            # sin resolver: no se cachea ni se afirma nada
+        gasto["consultas"] += 1
         fact = _fetch_live(eco, name)
         _remember(eco, name, fact)
         return fact
 
+    fetch.gasto = gasto                      # para que quien lo llama pueda decirlo
     return fetch
